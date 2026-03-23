@@ -1,65 +1,73 @@
-<html><head>
-	<meta http-equiv="Content-Type" content="text/html; charset=windows-1251" />
-    <title>Мониторинг связи</title>
-    <HTA:APPLICATION APPLICATIONNAME="PingMonitor" SINGLEINSTANCE="yes" />
-</head><body>
-<h1>Проверка связи</h1>
-<label><input type="checkbox" id="alarm" checked> Сигнал при сбоях</label><br><br>
-<div id="grid"></div><div id="alarm_wrap"></div>
+<script> 
 
+/*
 
-<script language="JScript"> 
+ РњРѕРЅРёС‚РѕСЂРёРј СЃРІСЏР·СЊ Рё РїРёР»РёРєР°РµРј С‡РµСЂРµР· РєРѕР»РѕРЅРєРё РїСЂРё СЃР±РѕСЏС…. 
+ Р’РµСЂСЃРёСЏ РѕС‚ 23.03.2026
+ Р”РѕРјР°С€РЅСЏСЏ СЃС‚СЂР°РЅРёС†Р°: https://PetelinSasha.ru/notes/pinger
+
+РџСЂРѕС‚РѕРєРѕР»С‹ РїСЂРѕРІРµСЂРєРё:
  
- 
-// Версия 20.03.2026 
-// Мониторим связь и пиликаем через колонки при сбоях     
+  ping вЂ” РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РїРѕ ICMP СЃРёР»Р°РјРё WMI. РўСЂРµРІРѕРіР°, РµСЃР»Рё РЅРµС‚ РѕС‚РІРµС‚Р°.
+  url  вЂ” РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ СЃР°Р№С‚Р° РёР»Рё СЃРµСЂРІРёСЃР°. РўСЂРµРІРѕРіР°, РµСЃР»Рё HTTP-СЃС‚Р°С‚СѓСЃ РЅРµ 2РҐРҐ OK.
+  port вЂ” РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ Рє TCP-РїРѕСЂС‚Сѓ. РўСЂРµРІРѕРіР°, РµСЃР»Рё СЃРѕРµРґРёРЅРµРЅРёРµ СЃР±СЂРѕС€РµРЅРѕ РёР»Рё С‚Р°Р№РјР°СѓС‚.
+  time вЂ” РїСЂРѕРІРµСЂСЏРµС‚ С‡Р°СЃС‹ СЃРµСЂРІРµСЂР° С‡РµСЂРµР· HTTP-Р·Р°РіРѕР»РѕРІРѕРє Date. РўСЂРµРІРѕРіР°, РµСЃР»Рё СЂР°Р·РЅРёС†Р° РІС‹С€Рµ РїРѕСЂРѕРіР°.
+               Р”Р»СЏ СЂР°Р±РѕС‡РёС… СЃС‚Р°РЅС†РёР№ windows РІСЂРµРјСЏ РјРѕР¶РЅРѕ РїРѕР»СѓС‡РёС‚СЊ СЃ РїРѕСЂС‚Р° 5357.
 
+*/
 
-// Список проверяемых адресов.  Поддерживаются протоколы: 
-//   ping - доступность хоста
-//   url - доступность сервиса
-//   port - открытый порт
-//   time - корректное время на сервере (с windows-станций можно запросить через порт 5357)
+// РЎРїРёСЃРѕРє РїСЂРѕРІРµСЂСЏРµРјС‹С… Р°РґСЂРµСЃРѕРІ
 var hosts = [
-    {ping: "192.168.1.1", name: "Маршрутизатор" },
-    {port: "192.168.1.2:5432", name: "База данных" },
-	{time: "http://127.0.0.2:5357", name: "Контроллер линии" },
+    {ping: "192.168.1.1", name: "РњР°СЂС€СЂСѓС‚РёР·Р°С‚РѕСЂ" },
+    {port: "192.168.1.200:5432", name: "Р‘Р°Р·Р° РґР°РЅРЅС‹С…" },	
+	{time: "http://127.0.0.2:5357", name: "РљРѕРЅС‚СЂРѕР»Р»РµСЂ Р»РёРЅРёРё" },
 	{url: "https://example.com/404" }, 
 	{ping: "PetelinSasha.ru", time: "https://PetelinSasha.ru", port:"PetelinSasha.ru:80" }
 ];  
 
-
-var checkInterval = 20 * 1000;
-var checkTimeout = 1000;
-var dateThreshold = 60*1000;     // допустимое отставания часов сервера: минута=60*1000, час = 60*60*1000, сутки = 24*60*60*1000
-  
-  
-// Звук бип - можно заменить на свой, это wav в base64-with-padding
-var alarmBase64 = "UklGRuYBAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YcIBAAB/gIaHd3eEeGmHlXhzi52IcYx5V3uCcoScoIJlhmZdh4CEmLCba0t6VVygm5WSq4xbT" +
-  "31bdKeYk46kf0ZefFiFsJSLlad0OnByWomkkYeZo3BAg29fkJ6MhZ6YYkyGYW2hk4mNpYlVXoNdeaONipCkf0xwfF6DooqIlJ90S35xYo2ahYiZmWlQh2ZpmZKEiJ2QYFuIYXSfjYeKooZVao" +
-  "JdfKKJh5CifFF3eF6EnYSHlZ9xT4NsY5GXg4ialmZVh2Rsm5KHip+MW2GGXnakjYeNoIBVbYBffqKHh5GhdlB8dWCJnIOGlpxtUYVrZ5SVhYebk2NZiGNunZCGiZ6JW2OFYHehi4eNoX5Uc" +
-  "nxfgp+FhpKfdFF/cmOLl4SGl5lqVIdoaJaThYabj2Jch2Ryno6Fip+FWmqCYHyhh4aPoXtVd3lhhJuEh5OdcVKDb2SOl4WGl5VpVohobJiShIecjGFhhmJ2oIuFi5+CWW5/YX+eh4eQoHdSfH" +
-  "ZhiJyFhpSZb1OFbmeRloSGmJFmWohlcJyPhImdiF5lhGF4noqGjKB/VXR9YIGfh4aRnXVTfnVjipqEhpWXbFWHa2qVk4OGmY9kXYc="
+var checkInterval = 20 * 1000;     // РёРЅС‚РµСЂРІР°Р» РїСЂРѕРІРµСЂРєРё
+var checkTimeout = 1000;           //  С‚Р°Р№РјР°СѓС‚ РїСЂРѕРІРµСЂРєРё
+var timeThreshold = 60*1000;     // РґРѕРїСѓСЃС‚РёРјРѕРµ РѕС‚СЃС‚Р°РІР°РЅРёСЏ С‡Р°СЃРѕРІ СЃРµСЂРІРµСЂР°: РјРёРЅСѓС‚Р°=60*1000, С‡Р°СЃ = 60*60*1000, СЃСѓС‚РєРё = 24*60*60*1000
+var urlFollowRedirects = false;    // true - СЃР»РµРґРѕРІР°С‚СЊ СЂРµРґРёСЂРµРєС‚Р°Рј Рё РїСЂРѕРІРµСЂСЏС‚СЊ РєРѕРЅРµС‡РЅСѓСЋ СЃС‚СЂР°РЅРёС†Сѓ. false - РІРѕСЃРїСЂРёРЅРёРјР°С‚СЊ РєР°Рє РѕС€РёР±РєСѓ.
    
-// Или можно прописать путь к одному из стандартных системных звуков
-var alarmFile = "";
+// var alarmFile = location.href;    // РЎРёРіРЅР°Р» РІ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё: РІСЃС‚СЂРѕРµРЅРЅС‹Р№
+var alarmFile = location.href.substring(0, location.href.lastIndexOf("/")) + "/error.wav";    // РёР»Рё РІРЅРµС€РЅРёР№, Р»РµР¶Р°С‰РёР№ РІ С‚РѕР№ Р¶Рµ РїР°РїРєРµ
+// var alarmFile =  "file:///C:/Windows/Media/chord.wav"; // РёР»Рё РѕРґРёРЅ РёР· СЃРёСЃС‚РµРјРЅС‹С…
+
+</script>
 
 
 
-// Подключаемые модули реализуют разные способы проверок доступности
-var Drivers = {};
+
+
+
+
+
+
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>РњРѕРЅРёС‚РѕСЂРёРЅРі СЃРІСЏР·Рё</title>
+    <HTA:APPLICATION APPLICATIONNAME="PingMonitor" SINGLEINSTANCE="yes" />
+</head><body>
+<h1>РџСЂРѕРІРµСЂРєР° СЃРІСЏР·Рё</h1>
+<label><input type="checkbox" id="alarm" checked> РЎРёРіРЅР°Р» РїСЂРё СЃР±РѕСЏС…</label><br><br>
+<div id="grid"></div><div id="alarm_wrap"></div>
+
+<script language="JScript"> 
 
 var ST_OK = 0;
 var ST_WAIT = 1;
 
 
+var Drivers = {};    // РџРѕРґРєР»СЋС‡Р°РµРјС‹Рµ РјРѕРґСѓР»Рё СЂРµР°Р»РёР·СѓСЋС‚ СЂР°Р·РЅС‹Рµ СЃРїРѕСЃРѕР±С‹ РїСЂРѕРІРµСЂРѕРє РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё
 
-// МОДУЛЬ ПИНГА
+
+// РџРРќР“
 Drivers.ping = {
     wmi: null,
     
     check: function(h) {       
-        if (!this.wmi) this.wmi = GetObject("winmgmts:root/cimv2"); // Ленивая инициализация        
+        if (!this.wmi) this.wmi = GetObject("winmgmts:root/cimv2"); // Р›РµРЅРёРІР°СЏ РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ        
         var query = "SELECT StatusCode, ResponseTime FROM Win32_PingStatus WHERE Address='" + h.ping + "' AND Timeout=" + checkTimeout;
         var res = new Enumerator(this.wmi.ExecQuery(query));
 		if (res.atEnd()) {
@@ -75,26 +83,26 @@ Drivers.ping = {
     
     decode: function(h) {
 		switch(h.status.ping) {
-			case ST_OK: return "Доступен (" + h.raw.ping + " мс)"; 
-			case ST_WAIT: return "";  // Ещё не проверялся
+			case ST_OK: return "Р”РѕСЃС‚СѓРїРµРЅ (" + h.raw.ping + " РјСЃ)"; 
+			case ST_WAIT: return "";  // Р•С‰С‘ РЅРµ РїСЂРѕРІРµСЂСЏР»СЃСЏ
 			case 11002: return "Net unreachable";
 			case 11003: return "Host not found";
 			case 11004: return "Host unreachable";
 			case 11010: return "Timed out";
-			default: return "Не пингуется. Ошибка " + h.status.ping;
+			default: return "РќРµ РїРёРЅРіСѓРµС‚СЃСЏ. РћС€РёР±РєР° " + h.status.ping;
 		}
 	}
 };
 
 
 
-// МОДУЛЬ ВРЕМЕНИ
+// Р’Р Р•РњРЇ
 Drivers.time = {
     http: null,
 
     check: function(h) {
         if (!this.http) {
-            this.http = new ActiveXObject("Msxml2.ServerXMLHTTP");
+            this.http = new ActiveXObject("WinHttp.WinHttpRequest.5.1");  // РёР»Рё "Msxml2.ServerXMLHTTP"
             this.http.setTimeouts(checkTimeout, checkTimeout, checkTimeout, checkTimeout); // resolve, connect, send, receive 
         }
         try {
@@ -104,7 +112,7 @@ Drivers.time = {
             h.status.time = this.http.status;
             if (h.raw.time) {
                 var diff = Math.abs(new Date(h.raw.time) - new Date());
-                if (!isNaN(diff) && diff < dateThreshold) 
+                if (!isNaN(diff) && diff < timeThreshold) 
 					h.status.time = ST_OK; 
             }
         } catch(e) {
@@ -116,65 +124,77 @@ Drivers.time = {
 
     decode: function(h) {		 
 		switch(h.status.time) {
-			case ST_OK: return "Время правильное"; 
-			case ST_WAIT: return "";  // Ещё не проверялся
-			case -1: return "Время не получено. " + h.raw.time; // ошибка сетевого уровня (WinHTTP)
-			default: return  "Сбиты часы: " + h.raw.time;
+			case ST_OK: return "Р’СЂРµРјСЏ РїСЂР°РІРёР»СЊРЅРѕРµ"; 
+			case ST_WAIT: return "";  // Р•С‰С‘ РЅРµ РїСЂРѕРІРµСЂСЏР»СЃСЏ
+			case -1: return "Р’СЂРµРјСЏ РЅРµ РїРѕР»СѓС‡РµРЅРѕ. " + h.raw.time; // РѕС€РёР±РєР° СЃРµС‚РµРІРѕРіРѕ СѓСЂРѕРІРЅСЏ (WinHTTP)
+			default: return  "РЎР±РёС‚С‹ С‡Р°СЃС‹: " + h.raw.time;
 		}		
     }
 };
 
 
-// МОДУЛЬ ПОРТА
+// РџРћР Рў
 Drivers.port = {
     http: null,
 
     check: function(h) {
         if (!this.http) {
-            this.http = new ActiveXObject("Msxml2.ServerXMLHTTP");
+            this.http = new ActiveXObject("WinHttp.WinHttpRequest.5.1"); 
         }
         try {
-            this.http.setTimeouts(checkTimeout, checkTimeout, checkTimeout, checkTimeout);
-            this.http.open("HEAD", "http://" + h.port, false);
+            this.http.setTimeouts(checkTimeout, checkTimeout, checkTimeout, checkTimeout); // resolve, connect, send, receive 
+            this.http.open("HEAD", "https://" + h.port, false);
             this.http.send();
-            h.status.port = ST_OK;   // если мы здесь, порт ответил
+            h.status.port = ST_OK;   // РµСЃР»Рё РјС‹ Р·РґРµСЃСЊ, РїРѕСЂС‚ РѕС‚РІРµС‚РёР»
             h.raw.port = "";
         } catch (e) {
-            h.status.port = e.number;
-            h.raw.port = e.description;
+			var err = e.number & 0xFFFF;
+			var badErrors = { 
+				12002: "С‚Р°Р№РјР°СѓС‚",
+				12005: "РќРµРІРµСЂРЅС‹Р№ С„РѕСЂРјР°С‚ URL.",
+				12007: "DNS Error РёР»Рё РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ Р°РґСЂРµСЃ",
+				12029: "СЃРѕРµРґРёРЅРµРЅРёРµ РѕС‚РІРµСЂРіРЅСѓС‚Рѕ - С…РѕСЃС‚ Р¶РёРІ, РЅРѕ РїРѕСЂС‚ Р·Р°РєСЂС‹С‚."
+			};
+			if (badErrors[err]) {
+				h.status.port = err;        // РїРѕСЂС‚ С‚РѕС‡РЅРѕ РЅРµРґРѕСЃС‚СѓРїРµРЅ
+				h.raw.port = e.description;
+			} else {
+				h.status.port = ST_OK;  // РїРѕСЂС‚ Р¶РёРІ, РїСЂРѕСЃС‚Рѕ РЅР°СЃ РЅРµ РїСѓСЃРєР°СЋС‚ / РЅРµРїРѕРґС…РѕРґСЏС‰РёР№ РїСЂРѕС‚РѕРєРѕР»
+				h.raw.port = e.description;
+			}
         }
         return h.status.port;
     },
 
     decode: function(h) {
         switch (h.status.port) {
-            case ST_OK: return "Порт открыт";
+            case ST_OK: return "РџРѕСЂС‚ РѕС‚РєСЂС‹С‚ ";
             case ST_WAIT: return "";
-            case -2147012867: return "Порт закрыт. " + h.raw.port;  // -2147012867 (0x80072EFD) - Connection refused (сервер жив, но порт закрыт)
-            case -2147012894: return "Порт недоступен. " + h.raw.port;  // -2147012894 (0x80072EE2) - Timed out (firewall или нет сети)
-            default: return "Порт недоступен. " + h.raw.port;  // Прочие ошибки WinHTTP
+            default: return "РџРѕСЂС‚ РЅРµРґРѕСЃС‚СѓРїРµРЅ. " + h.status.port + '  '  + h.raw.port; 
+			// https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
+			// https://github.com/winlibs/glib/blob/master/gio/win32/winhttp.h
         }
     }
 };
 
 
-// МОДУЛЬ URL
+// РЎРђР™Рў 
 Drivers.url = {
     http: null,
 
     check: function(h) {
         if (!this.http) {
-            this.http = new ActiveXObject("Msxml2.ServerXMLHTTP");
-            this.http.setTimeouts(checkTimeout, checkTimeout, checkTimeout, checkTimeout);
+			this.http = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+            this.http.setTimeouts(checkTimeout, checkTimeout, checkTimeout, checkTimeout); // resolve, connect, send, receive 
         }
         try {
 			this.http.open("HEAD", h.url, false);
+			this.http.Option(6) = urlFollowRedirects;   // 6 = WINHTTP_OPTION_REDIRECTS
             this.http.send();
             h.raw.url = this.http.status; 
 			h.status.url = this.http.status;
             if (this.http.status >= 200 && this.http.status < 300) h.status.url = ST_OK;
 			// if (this.http.status == 200) h.status.url = ST_OK;
-
         } catch (e) {
             h.status.url = -1;
             h.raw.url = e.description;
@@ -184,23 +204,15 @@ Drivers.url = {
 
     decode: function(h) {
         switch (h.status.url) {
-            case ST_OK: return "Доступен, код " + h.raw.url;
+            case ST_OK: return "Р”РѕСЃС‚СѓРїРµРЅ, РєРѕРґ " + h.raw.url;
             case ST_WAIT: return "";
-            case -1: return  "Сайт недоступен. " + h.raw.url;
-            default: return "Сайт недоступен, код " +h.raw.url;
+            case -1: return  "РЎР°Р№С‚ РЅРµРґРѕСЃС‚СѓРїРµРЅ. " + h.raw.url;
+            default: return "РЎР°Р№С‚ РЅРµРґРѕСЃС‚СѓРїРµРЅ, РєРѕРґ " +h.raw.url;
         }		
     }
 };
 
-  
-function base64ToBinary(b64) {
-    var xml = new ActiveXObject("MSXML2.DOMDocument.6.0");
-    var el = xml.createElement("tmp");
-    el.dataType = "bin.base64";
-    el.text = b64;
-    return el.nodeTypedValue;
-}
-    
+
 function playSound() {
     if (!document.getElementById("alarm").checked) return;
     var wrap = document.getElementById("alarm_wrap");
@@ -214,19 +226,19 @@ function playSound() {
 function autosize() {
     var table = document.getElementById("mainTable");
     //window.resizeTo(table.offsetWidth + 140, document.body.scrollHeight + 80);
-	window.resizeTo(table.offsetWidth + 320, document.body.scrollHeight + 80);
+	window.resizeTo(table.offsetWidth + 340, document.body.scrollHeight + 80);
 }
   
 function getHostColor(h) {
     var ok = 0, fail = 0;
     for (var k in h.status) {
-        if (h.status[k] === ST_WAIT)  return "#cccccc";  // Ещё не проверялся
+        if (h.status[k] === ST_WAIT)  return "#cccccc";  // Р•С‰С‘ РЅРµ РїСЂРѕРІРµСЂСЏР»СЃСЏ
         else if (h.status[k] === ST_OK) ok++;
         else fail++;
     }
-    if (fail > 0 && ok > 0) return "#8A24E1";    // Частично (оранжевый=#E73E05, фиолетовый=#8A24E1)
-    if (fail > 0) return "#aa0000";     // Ошибка
-    return "#00aa00";     // Все ОК
+    if (fail > 0 && ok > 0) return "#8A24E1";    // Р§Р°СЃС‚РёС‡РЅРѕ (РѕСЂР°РЅР¶РµРІС‹Р№=#E73E05, С„РёРѕР»РµС‚РѕРІС‹Р№=#8A24E1)
+    if (fail > 0) return "#aa0000";     // РћС€РёР±РєР°
+    return "#00aa00";     // Р’СЃРµ РћРљ
 }
 
 function getHostStatusShort(h) {
@@ -236,10 +248,10 @@ function getHostStatusShort(h) {
         if (h.status[k] !== ST_OK && h.status[k] !== ST_WAIT) 
             fails.push(Drivers[k].decode(h));
     }
-    if (total === 1) return Drivers[k].decode(h);  // Если драйвер один - выдаём его текст
-    if (fails.length === 0) return "В норме";         // Все статусы хорошие
-    if (fails.length === total) return "Нет связи"; // Все статусы плохие
-    return fails.join(". "); // Некоторые статусы плохие - покажем только их
+    if (total === 1) return Drivers[k].decode(h);  // Р•СЃР»Рё РґСЂР°Р№РІРµСЂ РѕРґРёРЅ - РІС‹РґР°С‘Рј РµРіРѕ С‚РµРєСЃС‚
+    if (fails.length === 0) return "Р’ РЅРѕСЂРјРµ";         // Р’СЃРµ СЃС‚Р°С‚СѓСЃС‹ С…РѕСЂРѕС€РёРµ
+    if (fails.length === total) return "РќРµС‚ СЃРІСЏР·Рё"; // Р’СЃРµ СЃС‚Р°С‚СѓСЃС‹ РїР»РѕС…РёРµ
+    return fails.join(". "); // РќРµРєРѕС‚РѕСЂС‹Рµ СЃС‚Р°С‚СѓСЃС‹ РїР»РѕС…РёРµ - РїРѕРєР°Р¶РµРј С‚РѕР»СЊРєРѕ РёС…
 }
 
 function getHostStatusFull(h) {
@@ -252,7 +264,7 @@ function getHostStatusFull(h) {
 
 function render() { 
     var html = "<table id='mainTable' border=1 cellpadding=4 cellspacing=0 >";
-	html+="<tr bgcolor='#cccccc'><th>Адрес</th><th style='width:5.5em'>Когда был в норме</th><th>Состояние</th><th>Ошибки</th></tr>";    
+	html+="<tr bgcolor='#cccccc'><th>РђРґСЂРµСЃ</th><th style='width:5.5em'>РљРѕРіРґР° Р±С‹Р» РІ РЅРѕСЂРјРµ</th><th>РЎРѕСЃС‚РѕСЏРЅРёРµ</th><th>РћС€РёР±РєРё</th></tr>";    
     for (var i = 0; i < hosts.length; i++) {
         var h = hosts[i];        
         html += "<tr bgcolor='" + getHostColor(h) + "' title='" +getHostStatusFull(h) + "' onclick='alert(this.title)' style='color:white;cursor:pointer;'>";
@@ -299,10 +311,10 @@ function checkAll(index, globalError) {
 
 function Main() {
 
-	// Предобработка списка проверяемых ресурсов
+	// РџСЂРµРґРѕР±СЂР°Р±РѕС‚РєР° СЃРїРёСЃРєР° РїСЂРѕРІРµСЂСЏРµРјС‹С… СЂРµСЃСѓСЂСЃРѕРІ
 	for (var i = 0; i < hosts.length; i++) {
 		var h = hosts[i];
-		h.name = h.name || h.ping || h.url || h.port || h.time || ("Безымянный " + (i + 1));
+		h.name = h.name || h.ping || h.url || h.port || h.time || ("Р‘РµР·С‹РјСЏРЅРЅС‹Р№ " + (i + 1));
 		h.lastGood = "-";
 		h.lostCount = 0;
 		h.status = {};
@@ -314,17 +326,9 @@ function Main() {
 			}
 	}    
 	
-	// Извлечение аудио
-	if (!alarmFile)  {
-		var fso  = new ActiveXObject("Scripting.FileSystemObject");
-		var stream = new ActiveXObject("ADODB.Stream");
-		alarmFile=fso.GetSpecialFolder(2) + "\\noping.wav";		
-		stream.Type = 1;
-		stream.Open();
-		stream.Write(base64ToBinary(alarmBase64));
-		stream.SaveToFile(alarmFile, 2);
-		stream.Close();
-	}
+	// РЈР±РёСЂР°РµРј РјСѓСЃРѕСЂ РѕС‚ РІСЃС‚СЂРѕРµРЅРЅРѕРіРѕ wav
+	if (document.body.firstChild.nodeType === 3)
+		document.body.removeChild(document.body.firstChild);
 
 	render(); 
 	autosize();
